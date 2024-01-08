@@ -79,10 +79,22 @@ class CodeMonkey(Agent):
         })
 
         exchanged_messages = 2
+        replace_complete_file = False
 
-        for retry in range(5):
+        # Allow for up to 2 retries
+        while exchanged_messages < 7:
             # Modify a copy of the content in case we need to retry
             content = file_content
+
+            if re.findall('(old|existing).+code', llm_response, re.IGNORECASE):
+                llm_response = convo.send_message('utils/llm_response_error.prompt', {
+                    "error": (
+                        "You must not omit any code from NEW_CODE. "
+                        "Please don't use coments like `// .. existing code goes here`."
+                    )
+                })
+                exchanged_messages += 2
+                continue
 
             # Split the response into pairs of old and new code blocks
             blocks = self.get_code_blocks(llm_response)
@@ -92,26 +104,58 @@ class CodeMonkey(Agent):
                 break
 
             if len(blocks) % 2 != 0:
+                print(f"Incorrect number of old→new code blocks ({len(blocks)}) when updating file, asking LLM to retry")
+
+                # If updating is more complicated than just replacing the complete file, don't bother.
+                if len(llm_response) > len(file_content):
+                    replace_complete_file = True
+                    break
+
                 llm_response = convo.send_message('utils/llm_response_error.prompt', {
-                    "error": "Each change should contain old and new code blocks."
+                    "error": "Each change should contain exactly one old and exactly one block of code."
                 })
                 exchanged_messages += 2
                 continue
 
             # Replace old code blocks with new code blocks
-            try:
-                for old_code, new_code in zip(blocks[::2], blocks[1::2]):
+            errors = []
+            for i, (old_code, new_code) in enumerate(zip(blocks[::2], blocks[1::2])):
+                try:
+                    old_code, new_code = self.dedent(old_code, new_code)
                     content = self.replace(content, old_code, new_code)
-                # Success, we're done with the file
+                except ValueError as err:
+                    errors.append((i + 1, str(err)))
+
+            if not errors:
                 break
-            except ValueError as err:
-                # we can't match old code block to the original file, retry
-                llm_response = convo.send_message('utils/llm_response_error.prompt', {
-                    "error": str(err),
-                })
-                exchanged_messages += 2
-                continue
+
+            print(f"{len(errors)} error(s) while trying to update file, asking LLM to retry")
+
+            if len(llm_response) > len(file_content):
+                # If updating is more complicated than just replacing the complete file, don't bother.
+                replace_complete_file = True
+                break
+
+            # Otherwise, identify the problem block(s) and ask the LLM to retry
+            if content != file_content:
+                error_text = (
+                    "Some changes were applied, but these failed:\n" +
+                    "\n".join(f"Error in change {i}:\n{err}" for i, err in errors) +
+                    "\nPlease fix the errors and try again (only output the blocks that failed to update, not all of them)."
+                )
+            else:
+                error_text = "\n".join(f"Error in change {i}:\n{err}" for i, err in errors)
+
+            llm_response = convo.send_message('utils/llm_response_error.prompt', {
+                "error": error_text,
+            })
+            exchanged_messages += 2
         else:
+            # We failed after a few retries, so let's just replace the complete file
+            print(f"Unable to modify file, asking LLM to output the complete new file")
+            replace_complete_file = True
+
+        if replace_complete_file:
             content = self.replace_complete_file(
                 convo,
                 standalone,
@@ -210,6 +254,29 @@ class CodeMonkey(Agent):
         for block in pattern.findall(llm_response):
             blocks.append(block[1])
         return blocks
+
+    @staticmethod
+    def dedent(old_code: str, new_code: str) -> tuple[str, str]:
+        """
+        Remove common indentation from `old_code` and `new_code`.
+
+        This is useful because the LLM will sometimes indent the code blocks MORE
+        than in the original file, leading to no matches. Since we have indent
+        compensation, we can just remove any extra indent as long as we do it
+        consistently for both old and new code block.
+
+        :param old_code: old code block
+        :param new_code: new code block
+        :return: tuple of (old_code, new_code) with common indentation removed
+        """
+        old_lines = old_code.splitlines()
+        new_lines = new_code.splitlines()
+        indent = 0
+        while all(l.startswith(" ") for l in old_lines) and all(l.startswith(" ") for l in new_lines):
+            indent -= 1
+            old_lines = [l[1:] for l in old_lines]
+            new_lines = [l[1:] for l in new_lines]
+        return "\n".join(old_lines), "\n".join(new_lines)
 
     @staticmethod
     def replace(haystack: str, needle: str, replacement: str) -> str:

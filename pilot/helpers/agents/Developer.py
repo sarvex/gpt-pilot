@@ -87,7 +87,7 @@ class Developer(Agent):
         self.project.dot_pilot_gpt.chat_log_folder(i + 1)
 
         convo_dev_task = AgentConvo(self)
-        convo_dev_task.send_message('development/task/breakdown.prompt', {
+        instructions = convo_dev_task.send_message('development/task/breakdown.prompt', {
             "name": self.project.args['name'],
             "app_type": self.project.args['app_type'],
             "app_summary": self.project.project_description,
@@ -103,9 +103,13 @@ class Developer(Agent):
             "task_type": 'feature' if self.project.finished else 'app'
         })
 
+        instructions_prefix = " ".join(instructions.split()[:5])
+        instructions_postfix = " ".join(instructions.split()[-5:])
         response = convo_dev_task.send_message('development/parse_task.prompt', {
             'running_processes': running_processes,
             'os': platform.system(),
+            'instructions_prefix': instructions_prefix,
+            'instructions_postfix': instructions_postfix,
         }, IMPLEMENT_TASK)
         steps = response['tasks']
         convo_dev_task.remove_last_x_messages(2)
@@ -504,9 +508,14 @@ class Developer(Agent):
                     "user_input": user_feedback,
                 })
 
+                instructions_prefix = " ".join(iteration_description.split()[:5])
+                instructions_postfix = " ".join(iteration_description.split()[-5:])
+
                 llm_response = iteration_convo.send_message('development/parse_task.prompt', {
                     'running_processes': running_processes,
                     'os': platform.system(),
+                    'instructions_prefix': instructions_prefix,
+                    'instructions_postfix': instructions_postfix,
                 }, IMPLEMENT_TASK)
                 iteration_convo.remove_last_x_messages(2)
 

@@ -1,55 +1,82 @@
-{% if standalone %}You're a senior software developer tasked with updating one file in a software project.{% endif %}
-
-You're given complete original file along with the instructions for the change. For context, you're also given all the relevant files in the project.
-{% if full_output %}
-Your task is to modify the original file using the provided instrunctions and output the new version of the original file *ENTRIRELY*, without omissions and
-comments like `// the rest of the code goes here` or similar.
-{% else %}
-Your task is to modify the original file using the provided instrunctions and output *ONLY THE MODIFICATIONS*. For each chunk of modification, output it in the following format:
-
-## Change
-
-Old:
-```
-lines that are added, modified, or removed
-```
-
-New:
-```
-old lines are replaced with these new ones
-```
-
-If no changes are actually required, you must not output any code blocks.
-
-If adding code to the start or the end of the file, include the first/last line of the original so we
-can see where the new code should be added.
-
-Important: old code must be verbatim as it will be used for search-replace, including the exact indentation from the original
-code; do not add any comments or explanation. Each old code block must uniquely identify the lines that need to be replaced.
-In replacement (new) code, remember to follow the same coding style that is used in the rest of the file. Pay
-special attention to the indentation of the new code and make sure include all the required new code, without omitting anything.
-{% endif %}
-{% if standalone %}
-Existing project files:
-{% for file in files %}
-* `{{ file['path'] }}/{{ file['name'] }}`
-```
-{{ file['content'] }}
-```
-
-{% endfor %}
-{% endif %}
-You need to modify file ({{ file_name }}), with current content:
+I need to modify file `{{ file_name }}` that currently looks like this:
 ```
 {{ file_content }}
 ```
-
-Here's how you need to modify this file: {{ code_changes_description }}
+This file needs to be modified by these instructions:
+---------------------instructions------------------------------
+{{ code_changes_description }}
+----------------------end_of_instructions-----------------------------
 {% if full_output %}
-Remember: you must output the entire new file in exactly one code block - do not omit anything, as it will be saved as-is.
+I want you to implement the instructions and show me the COMPLETE NEW VERSION of this file.
+**IMPORTANT**: Your reply should not omit any code in the new implementation or substitute anything with comments like `// .. rest of the code goes here ..`, because I will overwrite
+the existing file with the content you provide.
 {% else %}
-Remember: each change must have both old and new code blocks. The old code block must be found verbatim in the original file.
+I want you to implement the instructions and show me the exact changes (`diff`) in the file `{{ file_name }}`. Reply only with the modifications (`diff`) in the following format:
+-----------------------format----------------------------
+CURRENT_CODE:
+```
+(all lines of code in the current file that will be replaced by the code under NEW_CODE)
+```
+NEW_CODE:
+```
+(new lines of code that will replace the code under CURRENT_CODE)
+```
+------------------------end_of_format---------------------------
+For each change that needs to be done, you must show exactly one CURRENT_CODE code block and one NEW_CODE code block. You can think of this as difference (`diff`) between the current implementation and the new implementation.
+If there are no lines of code that need to be replaced by the NEW_CODE (if the NEW_CODE needs to be added into the CURRENT_CODE), show a couple of lines of code in the CURRENT_CODE before the place where NEW_CODE needs to be added.
+Here is an example of how to add one line `i--;` in the for loop:
+------------------------example_1---------------------------
+CURRENT_CODE:
+```
+let i = 0;
+i++;
+for (let j = 0; j < 100; j++) {
+```
+NEW_CODE:
+```
+let i = 0;
+i++;
+for (let j = 0; j < 100; j++) {
+    i--;
+```
+------------------------end_of_example_1---------------------------
+Here's an example how to add code to the beginning of the file:
+------------------------example_2---------------------------
+CURRENT_CODE:
+```
+const app = express();
+const bodyParser = require('body-parser');
+```
+NEW_CODE:
+```
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+```
+------------------------end_of_example_2---------------------------
+If the instruction examples refer to existing code to paste in place, output the FULL referenced code instead of copying the comment, like in this example:
+Instructions: "Rename function oldfn() { // .. existing code } to function newfn() { // .. existing code }"
+------------------------example_3---------------------------
+CURRENT_CODE:
+```
+}
+
+function oldfn() {
+  let counter = initialize_counter();
+```
+NEW_CODE:
+```
+}
+
+function newfn() {
+  let counter = initialize_counter();
+```
+------------------------end_of_example_3---------------------------
+Do not show the entire file under CURRENT_CODE and NEW_CODE but only the lines that need to be replaced. If any lines should be left as they are in CURRENT_CODE, do not write them.
+**IMPORTANT**
+You must output the CURRENT_CODE exactly as it is in the original file, including the indentation from the original code, as it will be used for search-replace, and it should only match the original file in ONE place.
+In the NEW_CODE, remember to follow the same coding style that is used in the rest of the file. Pay special attention to the indentation of the new code and make sure to include all the required new code, without omitting anything.
+*IMPORTANT*: If the instructions provide hints like `# .. insert existing code here ...`, you must interpret those and insert relevant code from the original. NEVER omit any code that should go into the new block and NEVER substitute any code with comments like `// the rest of the code goes here`, `# existing code from other file`, or similar, even if the instructions ask for it!
+**IMPORTANT**
+Pay very close attention to parenthesis and make sure that when CURRENT_CODE is replaced with NEW_CODE there are no extra parenthesis or any parenthesis missing.
 {% endif %}
-*IMPORTANT*: If the instructions provide hints like `# .. insert existing code here ...`, you must interpret those and insert
-relevant code from the original. DO NOT blindly copy from the examples in the instructions. NEVER omit any code that should go
-into the new block and NEVER substitute any code with comments like `// the rest of the code goes here` or similar.
