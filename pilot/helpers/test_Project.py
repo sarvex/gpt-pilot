@@ -369,8 +369,8 @@ class TestProjectFileLists:
         files_no_folders = os.path.join(foo, 'files_no_folders')
         os.makedirs(src, exist_ok=True)
         os.makedirs(foo, exist_ok=True)
-        os.makedirs(foo + '/empty1', exist_ok=True)
-        os.makedirs(foo + '/empty2', exist_ok=True)
+        os.makedirs(f'{foo}/empty1', exist_ok=True)
+        os.makedirs(f'{foo}/empty2', exist_ok=True)
         os.makedirs(files_no_folders, exist_ok=True)
         for dir in ['.git', '.idea', '.vscode', '__pycache__', 'node_modules', 'venv', 'dist', 'build']:
             os.makedirs(os.path.join(project.root_path, dir), exist_ok=True)

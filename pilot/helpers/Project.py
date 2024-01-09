@@ -181,7 +181,7 @@ class Project:
             dict: The directory tree of tests.
         """
         # TODO remove hardcoded path
-        return build_directory_tree(self.root_path + '/tests', ignore=IGNORE_FOLDERS)
+        return build_directory_tree(f'{self.root_path}/tests', ignore=IGNORE_FOLDERS)
 
     def get_all_coded_files(self):
         """
@@ -196,7 +196,7 @@ class Project:
         files = [file for file in files if len(FileSnapshot.select().where(FileSnapshot.file_id == file.id)) > 0]
         # TODO END
 
-        files = self.get_files([file.path + '/' + file.name for file in files])
+        files = self.get_files([f'{file.path}/{file.name}' for file in files])
 
         # Don't send contents of binary files
         for file in files:
@@ -239,14 +239,13 @@ class Project:
         :param file_content: The string content of the file.
         :return: A list of tuples (line number, line content).
         """
-        lines_with_input_required = []
         lines = file_content.split('\n')
 
-        for line_number, line in enumerate(lines, start=1):
-            if 'INPUT_REQUIRED' in line:
-                lines_with_input_required.append((line_number, line.strip()))
-
-        return lines_with_input_required
+        return [
+            (line_number, line.strip())
+            for line_number, line in enumerate(lines, start=1)
+            if 'INPUT_REQUIRED' in line
+        ]
 
     def save_file(self, data):
         """
