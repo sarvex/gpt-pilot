@@ -13,7 +13,9 @@ class TechnicalWriter(Agent):
     def document_project(self, percent):
         files = self.project.get_all_coded_files()
         print(f'{color_green_bold("CONGRATULATIONS!!!")}')
-        print(f'You reached {color_green(str(percent) + "%")} of your project generation!\n\n')
+        print(
+            f'You reached {color_green(f"{str(percent)}%")} of your project generation!\n\n'
+        )
         print('For now, you have created:\n')
         print(f'{color_green(len(files))} files\n')
         print(f'{color_green(count_lines_of_code(files))} lines of code\n\n')

@@ -109,12 +109,11 @@ def get_directory_contents(
         # In-place update of dirs so that os.walk() doesn't traverse them
         dirs[:] = [d for d in dirs if d not in ignore]
 
-        for file in files:
-            if file in ignore:
-                continue
-
-            return_array.append(get_file_contents(os.path.join(dpath, file), directory))
-
+        return_array.extend(
+            get_file_contents(os.path.join(dpath, file), directory)
+            for file in files
+            if file not in ignore
+        )
     return return_array
 
 
